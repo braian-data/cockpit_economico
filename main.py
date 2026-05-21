@@ -49,7 +49,8 @@ class BancoCentralExtractor:
     
     def __init__(self, db_manager: DatabaseManager):
         self.db = db_manager
-        self.api_url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json"
+        # Rota otimizada: Delegação do filtro diretamente no motor do BCB (evita HTTP 406/413)
+        self.api_url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados/ultimos/{n}?formato=json"
 
     def popular_dimensao_indicadores(self, id_indicador: int, nome: str, sigla: str):
         query_dim = text("""
@@ -61,21 +62,27 @@ class BancoCentralExtractor:
             conn.execute(query_dim, {"id": id_indicador, "nome": nome, "sigla": sigla})
         logger.info(f"Dimensao atualizada: {sigla}")
 
-    def extrair_e_carregar(self, codigo_indicador: int, ultimos_n_registros: int = 30):
-        url = self.api_url.format(codigo=codigo_indicador)
+    def extrair_e_carregar(self, codigo_indicador: int, ultimos_n_registros: int = 15):
+        # A injeção do limite ocorre na formação da URL
+        url = self.api_url.format(codigo=codigo_indicador, n=ultimos_n_registros)
         
         try:
-            logger.info(f"Buscando dados da API para o indicador {codigo_indicador}...")
-            resposta = requests.get(url, timeout=10)
+            logger.info(f"Buscando {ultimos_n_registros} ultimos registros da API (Indicador {codigo_indicador})...")
+            
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                "Accept": "application/json"
+            }
+            resposta = requests.get(url, headers=headers, timeout=10)
             
             if resposta.status_code != 200:
-                logger.error(f"Erro na API do Bacen: Status {resposta.status_code}")
+                logger.error(f"Erro na API do Bacen: Status {resposta.status_code} - {resposta.text}")
                 return
 
             dados_brutos = resposta.json()
-            dados_recentes = dados_brutos[-ultimos_n_registros:]
 
-            df = pd.DataFrame(dados_recentes)
+            # O fatiamento [-n:] em memória foi abolido, os dados já chegam filtrados
+            df = pd.DataFrame(dados_brutos)
             
             df['data_referencia'] = pd.to_datetime(df['data'], format='%d/%m/%Y').dt.date
             df['valor_indicador'] = pd.to_numeric(df['valor'])

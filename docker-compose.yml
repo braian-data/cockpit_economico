@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  db_cockpit:
+  db:
     image: postgres:15-alpine
     container_name: pg_cockpit_database
     restart: always
@@ -12,17 +10,18 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "${DB_PORT}:5432"
+      - "5454:5432"
     volumes:
       - pg_cockpit_data:/var/lib/postgresql/data
 
-  pipeline_ingestao:
+  pipeline:
     build: .
     container_name: python_pipeline_motor
     env_file:
       - .env
     depends_on:
-      - db_cockpit
+      - db
+    restart: "no"
 
 volumes:
   pg_cockpit_data:
