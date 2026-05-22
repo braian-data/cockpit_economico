@@ -75,7 +75,7 @@ class BancoCentralExtractor:
             try:
                 logger.info(f"Buscando {ultimos_n_registros} ultimos registros da API (Indicador {codigo_indicador}) - Tentativa {tentativa}/{max_tentativas}...")
                 
-                # TIMEOUT EXPANDIDO PARA 45 SEGUNDOS
+                # TIMEOUT EXPANDIDO PARA 45 SEGUNDOSz
                 resposta = requests.get(url, headers=headers, timeout=45)
                 resposta.raise_for_status() 
                 break 
